@@ -1,5 +1,7 @@
 
 #include <SoftwareSerial.h>
+#include <stdio.h>
+#include <string.h>
 #define SIM800_TX_PIN 8
 #define SIM800_RX_PIN 7
 SoftwareSerial mySerial(SIM800_TX_PIN, SIM800_RX_PIN); 
@@ -13,6 +15,14 @@ String message = "";
 char incomingByte;
 String incomingData;
 bool atCommand = true;
+//NTC B3950 Steinhart–Hart equation
+int trshd_temp = 40;
+int tempPin = A3;
+float Vo;
+float R1 = 100;
+float logR2, R2, T, temp;
+float c1 = 1.009249522e-03, c2 = 2.378405444e-04, c3 = 2.019202697e-07;
+float tempC;
 void setup()
 {
   Serial.begin(9600); 
@@ -20,7 +30,8 @@ void setup()
   pinMode(device_1, OUTPUT);
   pinMode(device_2, OUTPUT); 
   pinMode(device_3, OUTPUT); 
-  pinMode(device_4, OUTPUT); 
+  pinMode(device_4, OUTPUT);
+  pinMode(tempPin, INPUT); 
   digitalWrite(device_1, LOW);
   digitalWrite(device_2, LOW);
   digitalWrite(device_3, LOW); 
@@ -40,6 +51,19 @@ void setup()
 }
 void loop()
 {
+  tempC = get_temp();
+  Serial.print("Temperature: ");
+  Serial.print(tempC);
+  Serial.println(" C");
+  delay(2000);
+   if (tempC>trshd_temp) {
+     digitalWrite(device_3, HIGH);
+     Serial.println("Device 3 Turn on by temp.");
+   }else{
+     digitalWrite(device_3, LOW);
+     Serial.println("Device 3 Turn off by temp.");
+
+   }
   if (mySerial.available()) {
     delay(100);
 
@@ -50,7 +74,7 @@ void loop()
     }
     delay(10);
     if (atCommand == false) {
-      receivedMessage(incomingData);
+      receivedMessage(incomingData, tempC);
     } else {
       atCommand = false;
     }
@@ -63,7 +87,7 @@ void loop()
     incomingData = "";
   }
 }
-void receivedMessage(String inputString) {
+void receivedMessage(String inputString, float temp) {
   //Get The number of the sender
   index = inputString.indexOf('"') + 1;
   inputString = inputString.substring(index);
@@ -77,8 +101,60 @@ void receivedMessage(String inputString) {
   Serial.println("Message: " + message);
   message.toUpperCase(); // uppercase the message received
 
-
+if((message.indexOf("T/") > -1)){
   //turn Device 1 ON
+  if (message.indexOf("D/1/N") > -1) {
+    digitalWrite(device_1, HIGH);
+    delay(1000);
+    Serial.println("Command: Device 1 Turn On");
+    Serial.println("for time:"+getValue(message, '/', 1)+"s");
+    delay(getValue(message, '/', 1).toInt()*1000);
+        digitalWrite(device_1, LOW);
+            Serial.println("for time:"+getValue(message, '/', 1)+"s "+"ended and turn off");
+
+
+  }
+
+
+  //turn Device 2 ON
+  if (message.indexOf("D/2/N") > -1) {
+    digitalWrite(device_2, HIGH);
+    delay(1000);
+    Serial.println("Command: Device 2 Turn On.");
+    Serial.println("for time:"+getValue(message, '/', 1)+"s");
+    delay(getValue(message, '/', 1).toInt()*1000);
+    digitalWrite(device_2, LOW);
+            Serial.println("for time:"+getValue(message, '/', 1)+"s "+"ended and turn off");
+
+  }
+
+  
+  //turn Device 3 ON
+  if (message.indexOf("D/3/N") > -1) {
+    digitalWrite(device_3, HIGH);
+    delay(1000);
+    Serial.println("Command: Device 3 Turn On.");
+    Serial.println("for time:"+getValue(message, '/', 1)+"s");
+    delay(getValue(message, '/', 1).toInt()*1000);
+    digitalWrite(device_3, LOW);
+            Serial.println("for time:"+getValue(message, '/', 1)+"s "+"ended and turn off");
+
+  }
+
+ 
+  //turn Device 4 ON
+  if (message.indexOf("D/4/N") > -1) {
+    digitalWrite(device_4, HIGH);
+    delay(1000);
+    Serial.println("Command: Device 4 Turn On.");
+     Serial.println("for time:"+getValue(message, '/', 1)+"s");
+    delay(getValue(message, '/', 1).toInt()*1000);
+    digitalWrite(device_4, LOW);
+            Serial.println("for time:"+getValue(message, '/', 1)+"s "+"ended and turn off");
+  }
+
+ 
+}else{
   if (message.indexOf("D/1/N") > -1) {
     digitalWrite(device_1, HIGH);
     delay(1000);
@@ -127,6 +203,41 @@ void receivedMessage(String inputString) {
     digitalWrite(device_4, LOW);
     Serial.println("Command: Device 4 Turn Off.");
   }
+}
 
+
+if(getValue(message,'/',0) =="TEMP"){
+  trshd_temp =getValue(message,'/',1).toInt();
+  Serial.println("temp threshold change to");
+  Serial.println(trshd_temp);
+}
+
+  // if(temp > ){
+  //    digitalWrite(device_3, HIGH);
+  //    Serial.println("Device 3 Turn on by temp.");
+  //  }
   delay(50);// Added delay between two readings
+}
+float get_temp() {
+  Vo = analogRead(tempPin);
+  R2 = R1 * (1023.0 / Vo - 1.0); // R2= R1*(Vin/Vout - 1)
+  logR2 = log(R2);
+  T = (1.0 / (c1 + c2 * logR2 + c3 * logR2 * logR2 * logR2));
+  return T - 273.15; //độ C
+}
+String getValue(String data, char separator, int index)
+{
+  int found = 0;
+  int strIndex[] = {0, -1};
+  int maxIndex = data.length()-1;
+
+  for(int i=0; i<=maxIndex && found<=index; i++){
+    if(data.charAt(i)==separator || i==maxIndex){
+        found++;
+        strIndex[0] = strIndex[1]+1;
+        strIndex[1] = (i == maxIndex) ? i+1 : i;
+    }
+  }
+
+  return found>index ? data.substring(strIndex[0], strIndex[1]) : "";
 }
