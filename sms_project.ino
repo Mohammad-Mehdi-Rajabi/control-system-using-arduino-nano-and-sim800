@@ -15,6 +15,8 @@ String message = "";
 char incomingByte;
 String incomingData;
 bool atCommand = true;
+int motor_speed = 255;
+int motor_run = 0;
 //NTC B3950 Steinhart–Hart equation
 int trshd_temp = 40;
 int tempPin = A3;
@@ -46,7 +48,7 @@ void setup()
   delay(1000);
   mySerial.println("AT+CNMI=1,2,0,0,0");  //procedure, how to receive messages from the network
   delay(1000);
-  mySerial.println("AT+CMGL=\"REC UNREAD\""); // Read unread messages
+  // mySerial.println("AT+CMGL=\"REC UNREAD\""); // Read unread messages
   Serial.println("Ready to received message");
 }
 void loop()
@@ -55,13 +57,15 @@ void loop()
   Serial.print("Temperature: ");
   Serial.print(tempC);
   Serial.println(" C");
-  delay(2000);
+  analogWrite(device_3, motor_run);
+
+  delay(1500);
    if (tempC>trshd_temp) {
-     digitalWrite(device_3, HIGH);
-     Serial.println("Device 3 Turn on by temp.");
+     digitalWrite(device_2, HIGH);
+     Serial.println("Device 2 Turn on by temp.");
    }else{
-     digitalWrite(device_3, LOW);
-     Serial.println("Device 3 Turn off by temp.");
+     digitalWrite(device_2, LOW);
+     Serial.println("Device 2 Turn off by temp.");
 
    }
   if (mySerial.available()) {
@@ -131,12 +135,12 @@ if((message.indexOf("T/") > -1)){
   
   //turn Device 3 ON
   if (message.indexOf("D/3/N") > -1) {
-    digitalWrite(device_3, HIGH);
+    analogWrite(device_3,  motor_speed);
     delay(1000);
     Serial.println("Command: Device 3 Turn On.");
     Serial.println("for time:"+getValue(message, '/', 1)+"s");
     delay(getValue(message, '/', 1).toInt()*1000);
-    digitalWrite(device_3, LOW);
+    analogWrite(device_3,  0);
             Serial.println("for time:"+getValue(message, '/', 1)+"s "+"ended and turn off");
 
   }
@@ -181,14 +185,15 @@ if((message.indexOf("T/") > -1)){
   }
   //turn Device 3 ON
   if (message.indexOf("D/3/N") > -1) {
-    digitalWrite(device_3, HIGH);
+    // digitalWrite(device_3, HIGH);
+      motor_run = motor_speed;
     delay(1000);
     Serial.println("Command: Device 3 Turn On.");
   }
 
   //turn Device 3 OFF
   if (message.indexOf("D/3/F") > -1) {
-    digitalWrite(device_3, LOW);
+    motor_run = 0;
     Serial.println("Command: Device 3 Turn Off.");
   }
   //turn Device 4 ON
@@ -208,8 +213,13 @@ if((message.indexOf("T/") > -1)){
 
 if(getValue(message,'/',0) =="TEMP"){
   trshd_temp =getValue(message,'/',1).toInt();
-  Serial.println("temp threshold change to");
+  Serial.println("temp threshold change to  ");
   Serial.println(trshd_temp);
+}
+if(getValue(message,'/',0) =="SPEED"){
+  motor_speed =getValue(message,'/',1).toInt();
+  Serial.println("motor speed change to  ");
+  Serial.println(motor_speed);
 }
 
   // if(temp > ){
